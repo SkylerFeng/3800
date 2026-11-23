@@ -101,10 +101,12 @@ async def test_mobile_rejects_invalid_or_oversized_data(data):
 async def test_phone_agent_requests_frame_only_for_vision_and_keeps_navigation(monkeypatch):
     app = create_app(Settings(web_access_password=PASSWORD, asr_provider='sensevoice'))
     service = app.state.service
+    frames = []
 
     async def answer(frame, text):
         assert frame.source == 'phone_snapshot'
-        assert text == '杯子在哪里'
+        assert text in ('杯子在哪里', '杯子在哪')
+        frames.append(frame.frame_id)
         return '杯子在中间。'
 
     async def transcribe(recording):
@@ -130,6 +132,11 @@ async def test_phone_agent_requests_frame_only_for_vision_and_keeps_navigation(m
         response = await client.post(url, content=content, headers=upload_headers)
         assert response.json()['reply'] == '杯子在中间。'
         assert (await client.post(url, content=content, headers=upload_headers)).status_code == 409
+        follow_up = await turn('它在哪')
+        response = await client.post('/api/assistant/snapshot/' + follow_up['snapshot_id'],
+                                     content=content, headers=upload_headers)
+        assert response.json()['reply'] == '杯子在中间。'
+        assert len(frames) == 2 and frames[0] != frames[1]
         result = await client.post('/api/assistant/voice', content=bytes(8000),
                                    headers={**headers, 'Content-Type': 'application/octet-stream'})
         assert '确认出发' in result.json()['reply']

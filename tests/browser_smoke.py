@@ -12,6 +12,12 @@ def main():
         browser=p.chromium.launch(executable_path=os.environ.get('CHROME_PATH','/usr/bin/google-chrome'),headless=True,args=['--no-sandbox'])
         page=browser.new_page(viewport={'width':1440,'height':1100})
         page.on('pageerror',lambda error: errors.append(str(error)))
+        page.add_init_script("""window.beepStarts = [];
+            const start = OscillatorNode.prototype.start;
+            OscillatorNode.prototype.start = function (...args) {
+                window.beepStarts.push(performance.now());
+                return start.apply(this, args);
+            };""")
         base=os.environ.get('BROWSER_BASE_URL','http://127.0.0.1:8000').rstrip('/')
         page.goto(base)
         expect(page.locator('#connection')).to_have_text('本机服务已连接')
@@ -26,16 +32,31 @@ def main():
         page.locator('#ask').click()
         expect(page.locator('#task-status')).to_contain_text('completed')
         expect(page.locator('#answer')).to_contain_text('模拟回答，未执行真实图像识别')
+        page.locator('#obstacle-tone').check()
+        for distance, label, period in ((.8, '慢响', 850), (.5, '中速', 450), (.3, '快响', 200)):
+            page.locator('#distance').fill(str(distance))
+            page.locator('#apply-distance').click()
+            expect(page.locator('#warning-level')).to_have_text(label)
+            page.evaluate('window.beepStarts = []')
+            for _ in range(30):
+                if page.evaluate('window.beepStarts.length >= 2'):
+                    break
+                page.wait_for_timeout(100)
+            first, second = page.evaluate('window.beepStarts.slice(0, 2)')
+            assert abs(second - first - period) < 150, (label, second - first)
         page.locator('[data-scenario=near]').click()
-        expect(page.locator('#warning-level')).to_have_text('critical')
+        expect(page.locator('#warning-level')).to_have_text('快响')
         expect(page.locator('#haptic-event')).to_contain_text('simulated')
         page.locator('[data-scenario=fault]').click()
         expect(page.locator('#distance-info')).to_contain_text('fault')
-        expect(page.locator('#warning-level')).to_have_text('unknown')
+        expect(page.locator('#warning-level')).to_have_text('未知')
+        page.evaluate('window.beepStarts = []')
+        page.wait_for_timeout(950)
+        assert page.evaluate('window.beepStarts.length') == 0
         page.locator('[data-scenario=no_target]').click()
         expect(page.locator('#distance-info')).to_contain_text('no_target')
         page.locator('[data-scenario=normal]').click()
-        expect(page.locator('#warning-level')).to_have_text('normal')
+        expect(page.locator('#warning-level')).to_have_text('未触发')
         expect(page.locator('#distance-info')).to_contain_text('stale',timeout=6000)
         page.locator('#vision-mode').select_option('unconfigured')
         expect(page.locator('#vision-mode')).to_have_value('unconfigured')

@@ -14,6 +14,14 @@ UNAVAILABLE = {
     'unconfigured': '声纳未配置',
 }
 
+ALERT_LEVELS = ('critical', 'warning', 'notice')
+MESSAGES = {
+    'critical': '前方距离很近',
+    'warning': '前方有近距离障碍',
+    'notice': '前方有障碍',
+    'normal': '当前测距未触发阈值；不代表道路安全',
+}
+
 
 class WarningRules:
     def __init__(self, settings: Settings):
@@ -34,18 +42,16 @@ class WarningRules:
             self.level = 'unknown'
             message = UNAVAILABLE[status] + '，不能据此判断前方安全'
         else:
-            critical = self.config.critical_m
-            warning = self.config.warning_m
-            margin = self.config.hysteresis_m
-            if self.level == 'critical' and distance <= critical + margin:
-                self.level = 'critical'
-            elif distance <= critical:
-                self.level = 'critical'
-            elif self.level in ('critical', 'warning') and distance <= warning + margin:
-                self.level = 'warning'
-            elif distance <= warning:
-                self.level = 'warning'
-            else:
-                self.level = 'normal'
-            message = {'critical': '前方距离很近', 'warning': '前方有近距离障碍', 'normal': '当前测距未触发阈值；不代表道路安全'}[self.level]
-        return {'level': self.level, 'status': status, 'distance_m': distance, 'age_s': round(age, 2), 'received_at': sample.received_at, 'source': sample.source, 'simulated': sample.source == 'mock', 'message': message}
+            thresholds = (self.config.critical_m, self.config.warning_m, self.config.notice_m)
+            previous = self.level
+            self.level = 'normal'
+            for level, threshold in zip(ALERT_LEVELS, thresholds):
+                limit = threshold + (self.config.hysteresis_m if level == previous else 0)
+                if distance <= limit:
+                    self.level = level
+                    break
+            message = MESSAGES[self.level]
+        return {'level': self.level, 'status': status, 'distance_m': distance, 'age_s': round(age, 2),
+                'alert_remaining_s': max(0, self.config.distance_ttl_s - age) if self.level in ALERT_LEVELS else 0,
+                'received_at': sample.received_at, 'source': sample.source, 'simulated': sample.source == 'mock',
+                'message': message}

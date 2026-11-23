@@ -451,7 +451,7 @@ function listen(rate) {
     lead = [];
   }
   return data => {
-    if (!microphone || busy || playing || !player.paused || document.hidden) {
+    if (!data.length || !microphone || busy || playing || !player.paused || document.hidden) {
       reset();
       return;
     }
@@ -516,6 +516,14 @@ function startNativeMic(button, context) {
     if (!microphone || microphone.port !== port) return;
     if (data === 'started') {
       report('正在听。请让页面保持在前台。');
+    } else if (data === 'amap-pause') {
+      feed(new Float32Array(0));
+      report('正在高德导航。');
+    } else if (data === 'amap-return') {
+      clearHandoff();
+      if (context) context.resume().catch(() => {});
+      port.postMessage('start');
+      report('已回到助手，正在恢复录音。');
     } else if (['paused', 'permission', 'error'].includes(data)) {
       await stopMicrophone();
       button.disabled = false;

@@ -1,6 +1,9 @@
 const $ = id => document.getElementById(id);
 let state = null, currentFrame = null, busy = false, shownAudio = null;
-let audioContext = null, toneLevel = null, lastToneAt = -Infinity;
+const obstacleCadences = {critical: 200, warning: 450, notice: 850};
+const obstacleLabels = {critical: '快响', warning: '中速', notice: '慢响', normal: '未触发', unknown: '未知'};
+let audioContext = null;
+let toneLevel = null, toneTimer = null, toneOscillator = null, toneDeadline = 0;
 let livePreview = null;
 let previewURL = null;
 
@@ -94,11 +97,12 @@ function render(s) {
     too_close: '低于测距下限', interference: '回波受干扰', stale: '数据已过期',
     fault: '测距异常', waiting: '等待数据', not_installed: '声纳未就绪', unconfigured: '声纳未配置'
   };
-  $('warning-level').textContent = s.distance.level;
+  $('warning-level').textContent = obstacleLabels[s.distance.level];
   $('warning-level').className = 'badge ' + s.distance.level;
-  updateObstacleTone(s.distance.level);
+  updateObstacleTone(s.distance);
   $('distance-info').textContent = `${distanceLabels[s.distance.status]} (${s.distance.status}) · ${s.distance.age_s}s 前 · ${s.distance.message}`;
-  $('thresholds').textContent = `紧急 ≤ ${s.thresholds.critical_m}m；提醒 ≤ ${s.thresholds.warning_m}m；退出迟滞 ${s.thresholds.hysteresis_m}m；有效期 ${s.thresholds.ttl_s}s`;
+  const {critical_m, warning_m, notice_m, hysteresis_m, ttl_s} = s.thresholds;
+  $('thresholds').textContent = `快响 ≤ ${critical_m} m · 中速 ≤ ${warning_m} m · 慢响 ≤ ${notice_m} m · 退出迟滞 ${hysteresis_m} m · 有效期 ${ttl_s} s`;
   $('haptic-event').textContent = s.haptic.last_event ? JSON.stringify(s.haptic.last_event, null, 2) : '尚无触觉请求';
   const t = s.current_task;
   $('task-status').textContent = t ? `${t.status} · ${t.simulated ? '模拟模型' : t.provider}` : '等待提问';
@@ -114,7 +118,7 @@ function render(s) {
   $('transcribe').hidden = s.telemetry.source !== 'esp32';
   $('transcribe').disabled = !review || recording.transcribing || recording.provider === 'unconfigured';
   const player = $('answer-audio');
-  const warn = ['critical', 'warning'].includes(s.distance.level);
+  const warn = Object.hasOwn(obstacleCadences, s.distance.level);
   const clip = !listening && !($('obstacle-tone').checked && warn) && s.audio.status === 'ready' ? s.audio.request_id : null;
   if (clip !== shownAudio) {
     shownAudio = clip;
@@ -144,35 +148,64 @@ function render(s) {
   $('modules').replaceChildren(...entries.flatMap(([key,value])=>{const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key;dd.textContent=value;return [dt,dd];}));
   $('events').textContent = s.events.slice().reverse().map(e=>JSON.stringify(e)).join('\n') || '等待事件';
 }
-function updateObstacleTone(level) {
-  if (!$('obstacle-tone').checked || !audioContext || audioContext.state !== 'running') return;
-  if (level !== 'critical' && level !== 'warning') {
-    toneLevel = null;
+function stopObstacleTone() {
+  clearTimeout(toneTimer);
+  toneTimer = null;
+  toneLevel = null;
+  if (toneOscillator) {
+    toneOscillator.stop();
+    toneOscillator = null;
+  }
+}
+
+function playObstacleTone() {
+  if (performance.now() >= toneDeadline || audioContext.state !== 'running') {
+    stopObstacleTone();
     return;
   }
   const now = audioContext.currentTime;
-  if (toneLevel === level && now - lastToneAt < 1.5) return;
-  toneLevel = level;
-  lastToneAt = now;
   const oscillator = audioContext.createOscillator();
   const volume = audioContext.createGain();
-  oscillator.frequency.value = level === 'critical' ? 880 : 560;
-  volume.gain.setValueAtTime(.12, now);
-  volume.gain.exponentialRampToValueAtTime(.001, now + .2);
+  oscillator.frequency.value = 800;
+  volume.gain.setValueAtTime(.001, now);
+  volume.gain.exponentialRampToValueAtTime(.12, now + .008);
+  volume.gain.exponentialRampToValueAtTime(.001, now + .085);
   oscillator.connect(volume).connect(audioContext.destination);
+  toneOscillator = oscillator;
+  oscillator.onended = () => {
+    oscillator.disconnect();
+    volume.disconnect();
+    if (toneOscillator === oscillator) toneOscillator = null;
+  };
   oscillator.start(now);
-  oscillator.stop(now + .22);
+  oscillator.stop(now + .09);
+  toneTimer = setTimeout(playObstacleTone, obstacleCadences[toneLevel]);
+}
+
+function updateObstacleTone(distance) {
+  const level = distance?.level;
+  if (!$('obstacle-tone').checked || audioContext?.state !== 'running'
+      || !Object.hasOwn(obstacleCadences, level) || !(distance.alert_remaining_s > 0)) {
+    stopObstacleTone();
+    return;
+  }
+  toneDeadline = performance.now() + Math.min(1500, distance.alert_remaining_s * 1000);
+  if (toneLevel !== level) {
+    stopObstacleTone();
+    toneLevel = level;
+    playObstacleTone();
+  }
 }
 $('obstacle-tone').addEventListener('change', async () => {
   if (!$('obstacle-tone').checked) {
-    toneLevel = null;
+    stopObstacleTone();
     $('tone-info').textContent = '';
     return;
   }
   try {
     audioContext ||= new AudioContext();
     await audioContext.resume();
-    updateObstacleTone(state?.distance.level);
+    await refresh();
   } catch {
     $('obstacle-tone').checked = false;
     $('tone-info').textContent = '浏览器无法播放提示音。';
@@ -181,7 +214,15 @@ $('obstacle-tone').addEventListener('change', async () => {
 async function refresh() {
   if (busy) return;
   busy = true;
-  try {render(await api('/api/state', undefined, 'GET'));} catch(e) {$('connection').textContent='服务连接失败'; $('error').textContent=e.message;} finally {busy=false;}
+  try {
+    render(await api('/api/state', undefined, 'GET'));
+  } catch (error) {
+    stopObstacleTone();
+    $('connection').textContent = '服务连接失败';
+    $('error').textContent = error.message;
+  } finally {
+    busy = false;
+  }
 }
 for (const [id,module] of [['camera-mode','camera'],['vision-mode','vision'],['telemetry-mode','telemetry']]) {
   $(id).addEventListener('change',()=> action(async()=>{if(module==='telemetry') $('continuous').checked=false; await api('/api/mode/'+module,{value:$(id).value});}));

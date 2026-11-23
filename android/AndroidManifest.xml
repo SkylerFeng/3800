@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="edu.aiia.glasses" android:versionCode="3" android:versionName="0.3">
+    package="edu.aiia.glasses" android:versionCode="4" android:versionName="0.4">
     <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="34"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>

@@ -9,14 +9,21 @@ def sample(distance=None, status='valid', received=100):
     return DistanceSample(DistanceInput(status=status, distance_m=distance), 'test', received)
 
 
-@pytest.mark.parametrize('distance,level', [(.02,'critical'),(.5,'critical'),(.5001,'warning'),(1.2,'warning'),(1.2001,'normal'),(20,'normal')])
+@pytest.mark.parametrize('distance,level', [
+    (.02, 'critical'), (.30, 'critical'), (.3001, 'warning'), (.50, 'warning'),
+    (.5001, 'notice'), (.80, 'notice'), (.8001, 'normal'), (20, 'normal'),
+])
 def test_boundaries(distance,level):
     assert WarningRules(Settings()).evaluate(sample(distance),100)['level']==level
 
 
 def test_hysteresis():
-    r=WarningRules(Settings())
-    assert [r.evaluate(sample(d),100)['level'] for d in [.4,.59,.61,1.29,1.31]]==['critical','critical','warning','warning','normal']
+    rules = WarningRules(Settings(hysteresis_m=.02))
+    distances = [.30, .31, .33, .51, .53, .81, .83, .79, .49, .29]
+    assert [rules.evaluate(sample(d), 100)['level'] for d in distances] == [
+        'critical', 'critical', 'warning', 'warning', 'notice', 'notice', 'normal',
+        'notice', 'warning', 'critical',
+    ]
 
 
 @pytest.mark.parametrize('status',['no_target','stale','fault','not_installed','unconfigured'])
@@ -29,6 +36,7 @@ def test_invalid_is_unknown(status):
 def test_natural_stale():
     r=WarningRules(Settings())
     assert r.evaluate(sample(.2),103)['status']=='valid'
+    assert r.evaluate(sample(.2),103)['alert_remaining_s']==0
     assert r.evaluate(sample(.2),103.001)['status']=='stale'
 
 

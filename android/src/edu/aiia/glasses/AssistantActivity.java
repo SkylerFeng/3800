@@ -41,6 +41,8 @@ public final class AssistantActivity extends Activity {
     private final AtomicBoolean sampleQueued = new AtomicBoolean();
     private WebMessagePort micPort;
     private boolean foreground;
+    private boolean amapOpened;
+    private boolean returningFromAmap;
     private boolean micRequested;
     private int micGeneration;
     private GeolocationPermissions.Callback location;
@@ -174,6 +176,7 @@ public final class AssistantActivity extends Activity {
                             && "openFeature".equals(data.getHost())
                             && "OnFootNavi".equals(data.getQueryParameter("featureName"))) {
                         startActivity(new Intent(Intent.ACTION_VIEW, data).setPackage("com.autonavi.minimap"));
+                        amapOpened = true;
                     }
                 } else if ("https".equals(url.getScheme()) && "uri.amap.com".equals(url.getHost())
                         && ("/search".equals(url.getPath()) || "/navigation".equals(url.getPath()))) {
@@ -279,12 +282,18 @@ public final class AssistantActivity extends Activity {
     @Override protected void onStart() {
         super.onStart();
         foreground = true;
+        if (returningFromAmap) {
+            returningFromAmap = false;
+            sendMic("amap-return");
+        }
     }
 
     @Override protected void onStop() {
         foreground = false;
+        returningFromAmap = amapOpened;
+        amapOpened = false;
         stopMic();
-        sendMic("paused");
+        sendMic(returningFromAmap ? "amap-pause" : "paused");
         super.onStop();
     }
 

@@ -117,6 +117,45 @@ async def test_unknown_and_device_queries_do_not_call_vision(monkeypatch):
             assert expected in result.json()['reply']
 
 
+async def test_visual_follow_up_uses_target_and_new_frame(monkeypatch):
+    from dataclasses import replace
+
+    app = create_app(Settings())
+    service = app.state.service
+    seen = []
+
+    async def answer(frame, text):
+        seen.append((frame.frame_id, text))
+        return '在当前画面左侧。' if '在哪' in text else '蓝色。'
+
+    monkeypatch.setattr(service.vision, 'answer', answer)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+        headers = await begin(client)
+
+        async def turn(text):
+            return (await client.post('/api/assistant/turn', headers=headers, json={'text': text})).json()['reply']
+
+        assert '哪个物品' in await turn('它在哪')
+        first = replace(service.camera.frame, static=False)
+        service.camera.frame = first
+        assert '蓝色' in await turn('杯子是什么颜色')
+        assert '第1个' in await turn('导航到图书馆')
+        assert '模拟测距' in await turn('告诉我声纳距离')
+        assert '蓝色' in await turn('前面有什么')
+        assert '蓝色' in await turn('背包是什么颜色')
+        service.camera.frame = replace(first, frame_id='new-frame')
+        assert '画面左侧' in await turn('上一个物品在哪')
+        assert seen[-1] == ('new-frame', '杯子在哪')
+        service.camera.frame = replace(first, frame_id='latest-frame')
+        assert '画面左侧' in await turn('它在哪')
+        assert seen[-1] == ('latest-frame', '杯子在哪')
+        assert '确认出发' in await turn('选第一个')
+        assert '导航已开始' in await turn('确认出发')
+        headers = await begin(client)
+        assert '哪个物品' in await turn('它在哪')
+
+
+
 async def test_destination_is_filled_and_arrival_returns_to_conversation(monkeypatch):
     from app.maps import MOCK_CORNER, MOCK_END
     from app.nav_types import PositionInput

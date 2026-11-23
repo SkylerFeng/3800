@@ -127,9 +127,13 @@ async def test_navigation_api_auth_validation_and_obstacle_priority():
             s=(await c.post('/api/navigation/search',json={'query':'图书馆'},headers=h)).json()
             assert (await c.post('/api/navigation/plan',json={'search_id':s['search_id'],'candidate_id':s['candidates'][0]['candidate_id']},headers=h)).status_code==200
             await c.post('/api/navigation/start',headers=h)
-            await c.post('/api/distance',json={'status':'valid','distance_m':.2})
-            s=(await c.get('/api/navigation/state',headers=h)).json()
-            assert s['obstacle_priority'] and s['instruction'] is None
+            for distance in (.3, .5, .8):
+                await c.post('/api/distance', json={'status': 'valid', 'distance_m': distance})
+                s = (await c.get('/api/navigation/state', headers=h)).json()
+                assert s['obstacle_priority'] and s['instruction'] is None
+            await c.post('/api/distance', json={'status': 'valid', 'distance_m': .81})
+            s = (await c.get('/api/navigation/state', headers=h)).json()
+            assert not s['obstacle_priority'] and s['instruction']
             assert (await c.get('/navigation')).status_code==200
             await c.post('/api/navigation/mode',json={'value':'amap'},headers=h)
             assert (await c.post('/api/navigation/mock-position',json={'point':'start'},headers=h)).status_code==409

@@ -61,9 +61,10 @@ class Settings:
     model_timeout_s: float = 5
     distance_ttl_s: float = 3
     frame_ttl_s: float = 10
-    critical_m: float = .5
-    warning_m: float = 1.2
-    hysteresis_m: float = .1
+    critical_m: float = .3
+    warning_m: float = .5
+    notice_m: float = .8
+    hysteresis_m: float = 0.0
     haptic_interval_s: float = 1
     upload_max_bytes: int = 5 * 1024 * 1024
 
@@ -75,7 +76,7 @@ class Settings:
             if getattr(self, name) not in options:
                 raise ValueError(f'{name}: 不支持的配置')
         import math
-        for name in ('assistant_session_s', 'map_timeout_s', 'location_ttl_s', 'location_max_accuracy_m', 'off_route_m', 'route_max_age_s', 'model_timeout_s', 'distance_ttl_s', 'frame_ttl_s', 'critical_m', 'warning_m', 'hysteresis_m', 'haptic_interval_s', 'upload_max_bytes'):
+        for name in ('assistant_session_s', 'map_timeout_s', 'location_ttl_s', 'location_max_accuracy_m', 'off_route_m', 'route_max_age_s', 'model_timeout_s', 'distance_ttl_s', 'frame_ttl_s', 'critical_m', 'warning_m', 'notice_m', 'haptic_interval_s', 'upload_max_bytes'):
             if not math.isfinite(getattr(self, name)) or getattr(self, name) <= 0:
                 raise ValueError(f'{name} 必须为有限正数')
         for name in ('vision_api_base_url', 'ollama_base_url'):
@@ -96,8 +97,10 @@ class Settings:
                     raise ValueError()
             except ValueError:
                 raise ValueError(f'{name} 地址无效；外部服务需 HTTPS，Ollama 仅允许本机地址，不能包含密钥或查询参数') from None
-        if self.critical_m >= self.warning_m:
-            raise ValueError('critical_m 必须小于 warning_m')
+        if not self.critical_m < self.warning_m < self.notice_m:
+            raise ValueError('预警阈值必须满足 CRITICAL_M < WARNING_M < NOTICE_M')
+        if not math.isfinite(self.hysteresis_m) or self.hysteresis_m < 0:
+            raise ValueError('HYSTERESIS_M 必须为有限非负数')
         if not .02 <= self.sonar_min_m < self.sonar_max_m <= 20:
             raise ValueError('声纳有效读数范围必须在 0.02 到 20 米之间')
         for name in ('device_timeout_s', 'device_retry_s', 'imu_ttl_s', 'haptic_ack_s',

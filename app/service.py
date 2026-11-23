@@ -13,7 +13,7 @@ from .providers import (LatestCamera,
                         MockTTSProvider, MockAudioOutput, MockHapticOutput, UnconfiguredHapticOutput)
 from .navigation import Navigation
 from .speech import LocalSpeech, SpeechError
-from .warning import WarningRules
+from .warning import ALERT_LEVELS, WarningRules
 from .vision import build_vision, vision_status, VisionError
 
 logger = logging.getLogger('aiaa3800')
@@ -112,14 +112,14 @@ class Service:
         if self.haptic_task and not self.haptic_task.done():
             return warning
         self.last_haptic_level = level
-        active = level in ('critical', 'warning')
+        active = level in ALERT_LEVELS
         if active and (level != previous or now - self.last_haptic_at >= self.config.haptic_interval_s):
             critical = level == 'critical'
             request = HapticRequest(
                 duration_ms=self.config.critical_pulse_ms if critical else self.config.warning_pulse_ms,
                 intensity=self.config.critical_intensity if critical else self.config.warning_intensity,
                 reason=level)
-        elif previous in ('critical', 'warning') and not active:
+        elif previous in ALERT_LEVELS and not active:
             request = HapticRequest(duration_ms=0, intensity=0, reason=level, stop=True)
         else:
             return warning
@@ -275,7 +275,7 @@ class Service:
     def navigation_state(self):
         result = self.navigation.state()
         obstacle = self.rules.evaluate(self.distance_sample)
-        result['obstacle_priority'] = obstacle['level'] in ('critical', 'warning')
+        result['obstacle_priority'] = obstacle['level'] in ALERT_LEVELS
         if result['obstacle_priority']:
             result['instruction'] = None
             result['message'] = '近距离障碍提醒优先，导航转向提示暂缓'
@@ -312,5 +312,6 @@ class Service:
             'map': self.navigation.summary(), 'current_task': self.current,
             'last_answer': self.last_answer, 'last_error': self.last_error, 'events': list(self.events),
             'thresholds': {'critical_m': self.config.critical_m, 'warning_m': self.config.warning_m,
+                           'notice_m': self.config.notice_m,
                            'hysteresis_m': self.config.hysteresis_m, 'ttl_s': self.config.distance_ttl_s},
         }

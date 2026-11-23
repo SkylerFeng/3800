@@ -1,5 +1,6 @@
 """Conversation and tool calls for the foreground 3800 voice assistant."""
 import asyncio
+from collections import OrderedDict
 import re
 import secrets
 import time
@@ -9,7 +10,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from PIL import Image
 
-from .assistant_intents import AMAP, AMAP_SEARCH, DESTINATION, NUMBER, plan_actions
+from .assistant_intents import AMAP, AMAP_SEARCH, DESTINATION, NUMBER, VISUAL_REFERENCE, plan_actions, vision_target
 from .device import Recording
 from .domain import utc_now
 from .maps import MOCK_START
@@ -21,6 +22,7 @@ from .vision import VisionError, vision_status
 HELP = '可以问前方障碍有多远、杯子在哪里，或说步行去图书馆、用高德导航去图书馆。'
 ORDINALS = {'一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5}
 STOP_COMMANDS = frozenset(('结束助手', '退出助手', '关闭助手', '取消', '结束导航', '取消导航', '停止导航'))
+MAX_VISUAL_TARGETS = 8
 
 
 class Turn(BaseModel):
@@ -54,6 +56,7 @@ class Conversation:
         self.handoff = None
         self.pending_stop = None
         self.pending_snapshot = None
+        self.visual_targets: OrderedDict[str, str] = OrderedDict()
 
     def begin(self):
         if self.owner:
@@ -74,6 +77,7 @@ class Conversation:
         self.external_search = False
         self.pending_stop = None
         self.pending_snapshot = None
+        self.visual_targets.clear()
         self.expires = 0.
 
     def check(self, owner):
@@ -145,7 +149,7 @@ class Conversation:
                         )['external_upload_enabled']:
                             raise NavError('请在权限与设置允许发送问答画面。')
                         raise NavError('手机未能从眼镜取图。请检查眼镜热点与 IP。')
-                    reply = await self.answer(request.model_copy(update={'text': action.text}), frame)
+                    reply = await self.answer_with_context(request, action.text, frame, owner)
                 elif action.tool == 'distance':
                     reply = '随身模式尚未接入眼镜声纳。' if phone else self.distance_prompt()
                 elif action.tool == 'device':
@@ -388,6 +392,38 @@ class Conversation:
         self.route_id = None
         self.search_id = self.nav.search_id
         self.query, self.region, self.page, self.offset = destination, region, page, 0
+
+    async def answer_with_context(self, request, question, frame, owner):
+        target = vision_target(question)
+        follow_up = not target and VISUAL_REFERENCE.search(question)
+        if follow_up:
+            targets = tuple(reversed(self.visual_targets))
+            index = 1 if follow_up[0].startswith('上一个') else 0
+            if len(targets) <= index or follow_up[0] == '它们' or len(VISUAL_REFERENCE.findall(question)) > 1:
+                return '你指的是哪个物品？请说出名称。'
+            target = targets[index]
+            question = VISUAL_REFERENCE.sub(lambda _: target, question)
+        previous_frame = self.visual_targets.get(target)
+        if frame is None:
+            camera = self.service.camera
+            frame = await camera.snapshot()
+            if not frame.static and frame.frame_id == previous_frame:
+                changed = camera.changed
+                try:
+                    await asyncio.wait_for(changed.wait(), 1.5)
+                except asyncio.TimeoutError:
+                    return '还没收到新的眼镜画面，请稍后再问。'
+                frame = await camera.snapshot()
+                if frame.frame_id == previous_frame:
+                    return '还没收到新的眼镜画面，请稍后再问。'
+        reply = await self.answer(request.model_copy(update={'text': question}), frame)
+        self.check(owner)
+        if target:
+            self.visual_targets[target] = frame.frame_id
+            self.visual_targets.move_to_end(target)
+            if len(self.visual_targets) > MAX_VISUAL_TARGETS:
+                self.visual_targets.popitem(last=False)
+        return reply
 
     async def answer(self, request, frame=None):
         service = self.service

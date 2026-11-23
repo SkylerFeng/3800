@@ -88,12 +88,12 @@ done
 | 视频和遥测 | `CAMERA_SOURCE`、`TELEMETRY_SOURCE`、`CAMERA_FPS`、`DEVICE_TIMEOUT_S`、`DEVICE_RETRY_S` |
 | 数据新鲜度 | `FRAME_TTL_S`、`DISTANCE_TTL_S`、`IMU_TTL_S` |
 | 声纳读数范围 | `SONAR_MIN_M`、`SONAR_MAX_M` 控制主机采信的读数区间。实物量程按具体型号与现场测量确定 |
-| 预警规则 | `WARNING_M`、`CRITICAL_M`、`HYSTERESIS_M` |
+| 预警规则 | `CRITICAL_M`、`WARNING_M`、`NOTICE_M`、`HYSTERESIS_M` |
 | 触觉 | `HAPTIC_OUTPUT`、`HAPTIC_INTERVAL_S`、`HAPTIC_ACK_S`、两个等级的 `*_PULSE_MS` 和 `*_INTENSITY` |
 | 语音 | `ASR_PROVIDER`、`SENSEVOICE_MODEL_DIR`、`SENSEVOICE_THREADS`、`VOSK_MODEL_PATH`、`ASR_TIMEOUT_S`、`TTS_PROVIDER`、`TTS_TIMEOUT_S` |
 | 模型与导航 | `VISION_PROVIDER`、`MODEL_TIMEOUT_S`、`MAP_PROVIDER`、位置有效期、精度与偏离阈值 |
 
-默认阈值为提醒 1.2 米和紧急 0.5 米，迟滞为 0.1 米。这些值用于受控演示，佩戴和环境标定需按实测调整。启动参数支持现有的 `--host`、`--port`、`--cert` 和 `--key`，环境变量优先于 `.env`。详细键名和默认值见 [.env.example](../.env.example)。
+在控制台勾选「开启网页障碍提示音」。默认 30 厘米及以内快响，超过 30 到 50 厘米中速响，超过 50 到 80 厘米慢响。默认迟滞为 0，可通过 `HYSTERESIS_M` 调整。使用旧版显式阈值时，将三个阈值一起更新。启动参数支持 `--host`、`--port`、`--cert` 和 `--key`，环境变量优先于 `.env`。 [.env.example](../.env.example)
 
 
 实时预览收到新帧后立即更新，`CAMERA_FPS` 限制主机处理帧率。实际更新受 ESP32 输出和网络影响。无有效回波时网页保留空距离并显示原因。标定声纳时，用平整目标垂直朝向探头，逐步拉远并记下最后稳定输出的距离，再配置读数上限。
