@@ -1,0 +1,4 @@
+-r requirements.txt
+sherpa-onnx==2.0.3
+sherpa-onnx-core==2.0.3
+numpy==2.2.6

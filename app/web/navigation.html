@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AIAA 3800 · 定位与路线</title><link rel="stylesheet" href="/static/style.css"><script src="/static/navigation.js?v=2" defer></script></head>
+<body><header><div><span class="eyebrow">AIAA 3800 / NAVIGATION LAB</span><h1>定位与步行路线</h1><p>确认目的地 · 地图路线支持 · 定位失效停止具体提示</p></div><a href="/">返回图像与测距</a></header>
+<main><p><a href="/assistant">用 3800 语音助手确认路线</a></p><section class="card" id="mobile-navigation">
+<h2>用手机高德导航</h2>
+<p>输入或说出地点，再交给高德选地点、显示地图和播报步行路线。</p>
+<label for="amap-destination">目的地</label>
+<input id="amap-destination" maxlength="80" placeholder="例如：带我去学校图书馆">
+<div class="actions">
+<button id="nav-voice" class="secondary" type="button">说出目的地</button>
+<a class="map-action" id="amap-search" hidden>在高德地图搜索</a>
+</div>
+<p id="nav-voice-status" role="status"></p>
+</section><div class="notice" id="map-notice">正在读取地图配置</div><p id="nav-error" role="alert"></p>
+<div class="layout"><div class="stack"><section class="card"><h2>01 · 位置来源</h2>
+<label for="map-mode">地图服务（独立于视觉模型和遥测）</label><select id="map-mode"><option value="mock">模拟路线 · 虚构地点</option><option value="amap">高德 Web 服务 · 需独立 Key 和外发许可</option><option value="unconfigured">未配置</option></select>
+<p class="muted">高德模式会向高德发送位置、搜索词和路线端点。仅在你选择相应操作后发送。IMU 不能替代手机定位。</p>
+<div class="actions"><button id="browser-start">开始手机/浏览器定位</button><button class="secondary" id="browser-stop">停止定位</button></div><p id="browser-info" class="muted"></p>
+<details><summary>手动起点（仅路线预览）</summary><label for="lon">经度</label><input id="lon" type="number" step="any" min="-180" max="180" placeholder="例如 116.4"><label for="lat">纬度</label><input id="lat" type="number" step="any" min="-90" max="90" placeholder="例如 39.9"><label for="coord">坐标系</label><select id="coord"><option value="GCJ02">GCJ-02 · 高德坐标</option><option value="WGS84">WGS84 · GPS / 浏览器</option></select><label for="accuracy">位置误差范围（米）</label><input id="accuracy" type="number" min="1" max="100000" value="10"><button id="manual-position" class="secondary">设置手动起点</button></details>
+<p id="location-info">尚无位置</p><div class="actions"><button id="mock-start" class="secondary">使用内置模拟起点</button></div>
+</section><section class="card"><h2>02 · 搜索并确认目的地</h2><form id="search-form"><label for="destination-query">地点名称</label><input id="destination-query" maxlength="80" required placeholder="例如：图书馆（需要确认具体入口）"><label for="region">城市/区域（可选，建议填写）</label><input id="region" maxlength="40" placeholder="填写实际演示城市以减少歧义"><button type="submit" id="search-button">搜索候选</button></form><p class="muted">搜索词直接用于地点检索；不会让千问编造路线。新搜索会停止旧导航。</p><div id="candidates"></div><div class="actions"><button class="secondary" id="next-candidates" hidden>下一页候选</button></div></section></div>
+<div class="stack"><section class="card"><div class="section-title"><h2>03 · 路线与导航状态</h2><span id="nav-status" class="badge">idle</span></div><div class="answer" aria-live="polite"><p id="nav-message">请提供位置并搜索目的地</p><p id="nav-instruction"></p></div><p id="route-info" class="muted"></p><a id="route-map-link" hidden>在高德地图查看步行路线</a><canvas id="route-canvas" width="600" height="350" aria-label="路线几何示意图；不是底图或实时道路地图"></canvas><p class="muted">仅绘制服务返回的路线几何，无道路底图。箭头和精确身体朝向未实现。路线不代表无障碍通行或过街安全。</p><ol id="route-steps"></ol><div class="actions"><button id="nav-start">开始/恢复提示</button><button id="nav-pause" class="secondary">暂停</button><button id="nav-stop" class="secondary">结束并清除路线</button></div><p id="nav-progress" class="muted"></p><div class="actions"><button class="secondary" id="nav-speak" disabled>播放当前路段</button><button class="secondary" id="nav-speech-test">试听普通话</button></div><label><input id="nav-auto" type="checkbox"> 路段更新时自动播报</label><audio id="nav-audio" controls hidden></audio><p id="nav-speech-info" class="muted" role="status"></p></section>
+<section class="card"><h2>04 · 模拟移动（仅虚构路线）</h2><p class="muted">先使用模拟起点、搜索任意词、确认候选，再开始提示，按顺序点击位置。终点需两个独立样本才提示接近；偏离需三个样本。</p><div class="scenario-buttons"><button data-fix="start" class="secondary">起点</button><button data-fix="middle" class="secondary">第一段中途</button><button data-fix="corner" class="secondary">转角</button><button data-fix="north" class="secondary">第二段中途</button><button data-fix="end" class="secondary">终点附近</button><button data-fix="off_route" class="secondary">偏离位置</button></div><p class="muted">障碍提醒优先。位置精度差、过期或服务失败时暂停转向提示。</p></section></div></div>
+</main><footer>受控场景课程原型，不替代专业出行辅助工具。真实高德覆盖、权限和手机定位均需现场验证。</footer></body></html>

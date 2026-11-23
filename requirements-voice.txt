@@ -1,0 +1,10 @@
+-r requirements.txt
+vosk==0.3.45
+cffi==2.1.1
+charset_normalizer==3.5.2
+pycparser==3.11
+requests==2.34.2
+srt==3.5.3
+tqdm==4.70.1
+urllib3==2.8.0
+websockets==16.1.1

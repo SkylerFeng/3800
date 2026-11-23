@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>AIAA 3800 · 辅助眼镜软件实验台</title><link rel="stylesheet" href="/static/style.css"><script src="/static/app.js" defer></script></head>
+<body>
+<header><div><span class="eyebrow">AIAA 3800 / SOFTWARE LAB</span><h1>视障辅助智能交互眼镜</h1><p>实时画面、语音问答与障碍预警</p></div><span class="badge" id="connection">连接中</span></header>
+<main><p><a href="/assistant">打开 3800 语音助手</a> · <a href="/demo">演示流程</a> · <a href="/navigation">打开定位与步行路线实验台 →</a></p>
+<div class="notice" id="vision-notice"><strong>离线演示模式</strong> 正在读取当前配置。</div>
+<p id="error" role="alert"></p>
+<div class="layout"><section class="card"><div class="section-title"><h2>图像与问答</h2><span id="image-label" class="badge">无图像</span></div>
+<label for="camera-mode">图像来源</label><select id="camera-mode"><option value="mock">模拟静态素材</option><option value="upload">本地上传静态图片</option><option value="esp32">ESP32 实时画面</option></select>
+<div class="preview"><img id="preview" alt="当前图像"><p id="no-image">请选择模拟素材或上传图片</p></div>
+<label class="upload" for="image-file">上传本地图片 · JPEG / PNG，最多 5 MiB</label><input id="image-file" type="file" accept="image/jpeg,image/png"><p id="frame-info" class="muted"></p>
+<label for="vision-mode">视觉模型（独立于图像来源）</label><select id="vision-mode"><option value="mock">Mock · 固定模拟回答，未识别图像</option><option value="openai_compatible">真实视觉 · 兼容 API（需配置）</option><option value="ollama">真实视觉 · 本机 Ollama（需配置）</option><option value="unconfigured">不配置模型</option></select>
+<p id="vision-info" class="muted"></p><div class="voice-controls"><p id="recording-info" role="status"></p><button id="transcribe" type="button" class="secondary" disabled>识别眼镜录音</button></div><form id="question-form"><label for="question">输入中文问题</label><textarea id="question" maxlength="500" required placeholder="例如：杯子在哪里？"></textarea><div class="scenario-buttons" aria-label="示例文本">
+<button type="button" class="secondary" data-question="眼前有什么？">场景示例</button>
+<button type="button" class="secondary" data-question="杯子是什么颜色？">颜色示例</button>
+<button type="button" class="secondary" data-question="杯子在哪里？">方位示例</button>
+<button type="button" class="secondary" data-question="带我去图书馆">目的地示例</button>
+</div><label id="live-consent-label" hidden><input type="checkbox" id="live-consent"> 允许本次提问发送一张眼镜画面和问题</label><div class="actions"><button id="ask" type="submit">提交问题</button><button id="cancel" class="secondary" type="button">取消任务 / 播报</button><button id="use-destination" class="secondary" type="button">用输入内容找目的地</button></div></form>
+<div class="answer" aria-live="polite"><span id="task-status" class="eyebrow">等待提问</span><p id="answer">选择图片，然后输入问题。</p><p id="task-info" class="muted"></p></div><p id="audio-info" class="muted"></p><audio id="answer-audio" controls hidden></audio><label><input id="auto-answer" type="checkbox"> 自动播放回答</label></section>
+<div class="stack"><section class="card" id="warning-panel"><div class="section-title"><h2>测距与预警</h2><span class="badge">主机规则验证</span></div>
+<label for="telemetry-mode">遥测来源</label><select id="telemetry-mode"><option value="mock">可控制的模拟传感器</option><option value="esp32">ESP32 实时遥测</option></select>
+<div class="distance-display"><strong id="distance-value">—</strong><span>米</span><span id="warning-level" class="badge">unknown</span></div>
+<div id="mock-distance"><label for="distance">模拟距离 <output id="slider-value">2.00 m</output></label><input id="distance" type="range" min="0.02" max="4" step="0.01" value="2"><button id="apply-distance" class="secondary">发送当前距离</button><label><input id="continuous" type="checkbox"> 持续发送有效模拟距离（每 0.5 秒）</label>
+<div class="scenario-buttons"><button data-scenario="normal" class="secondary">正常距离</button><button data-scenario="near" class="secondary">近障碍</button><button data-scenario="no_target" class="secondary">无目标</button><button data-scenario="stale" class="secondary">数据过期</button><button data-scenario="fault" class="secondary">传感器故障</button><button data-scenario="not_installed" class="secondary">未安装</button></div>
+</div><p id="distance-info" role="status"></p><label><input type="checkbox" id="obstacle-tone"> 开启网页障碍提示音</label><p id="tone-info" class="muted" role="status"></p><p id="thresholds" class="muted"></p><pre id="haptic-event">尚无触觉请求</pre><p class="muted">无效数据不能解释为前方安全；未达到阈值也不代表道路安全。此处未实现 ESP32 本地、断网可用预警。</p></section>
+<section class="card"><h2>模块状态</h2><dl id="modules"></dl><p class="muted">静态图片不代表当前环境；方位仅以画面为参照。图片仅在主机内存中保留；真实服务按当前配置在提交问题时接收图片和问题。</p></section></div></div>
+<section class="card events"><h2>最近事件 <span class="muted">最多 40 条，不含图像和问题内容</span></h2><pre id="events">等待事件</pre></section>
+</main><footer>AIAA 3800 · 课程演示</footer>
+</body></html>

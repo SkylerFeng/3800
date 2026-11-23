@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3800 眼镜助手</title>
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/assistant.js" defer></script>
+</head>
+<body>
+<header><div><h1>3800 眼镜助手</h1><p>用普通话问眼镜、选择地点和确认路线。</p></div><a href="/">控制台</a></header>
+<main class="stack">
+<section class="card">
+<h2>开始会话</h2>
+<label><input type="checkbox" id="allow-frame"> 允许本次会话将提问和一张画面发给已配置的视觉服务</label>
+<label><input type="checkbox" id="allow-location"> 允许本次会话使用手机位置和高德地图</label>
+<label for="region">所在城市（可选）</label>
+<input id="region" maxlength="40" placeholder="例如：广州">
+<div class="actions">
+<button id="start-voice">开启连续语音</button>
+<button id="stop" class="secondary" disabled>结束会话</button>
+</div>
+<p id="status" role="status">开启后，可以说「先告诉我障碍有多远，再看看杯子在哪里」，也可以说「步行去图书馆」。</p>
+<p id="location-status"></p>
+</section>
+<section class="card">
+<h2>对话</h2>
+<p id="heard"></p>
+<p id="reply" aria-live="polite"></p>
+<p id="route-status" aria-live="polite"></p>
+<audio id="audio" controls hidden></audio>
+<form id="text-form">
+<label for="text">也可输入指令</label>
+<input id="text" maxlength="500" required placeholder="例如：确认出发">
+<div class="actions"><button type="submit">发送文字</button></div>
+</form>
+</section>
+</main>
+</body>
+</html>
