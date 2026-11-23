@@ -2,17 +2,27 @@
 from dataclasses import dataclass
 import re
 from typing import Literal
+import unicodedata
 
-Tool = Literal['vision', 'distance', 'device', 'route_status', 'navigation', 'clarify']
+Tool = Literal['vision', 'distance', 'device', 'route_status', 'navigation', 'amap', 'clarify']
 
-DESTINATION = re.compile(r'(?:请)?(?:步行(?:导航)?(?:到|去)|导航(?:到|去)|带我去|我想去|我要去|去)(.+)')
-NUMBER = re.compile(r'第?([一二两三四五1-5])(?:个|项)?')
+DESTINATION = re.compile(r'(?:步行(?:导航)?(?:到|去)|导航(?:到|去)|带我(?:到|去)|我想去|我要去|去)(.+)')
+NUMBER = re.compile(r'(?:我选|选择|就选|选)?第?([一二两三四五1-5])(?:个|项|号)?(?:吧)?')
+AMAP_NAME = r'高[德得的](?:地图)?'
+AMAP = re.compile(rf'(?:(?:打开|启动|调出|切换到){AMAP_NAME}(?:导航)?|'
+                  rf'(?:用|在|交给){AMAP_NAME}(?:帮我)?(?:开始)?(?:步行)?导航)(.*)')
+AMAP_SEARCH = re.compile(rf'(?:打开|启动|在|用){AMAP_NAME}(?:帮我)?(?:搜索|查找|查|搜)(.+)')
 NAVIGATION_COMMANDS = frozenset((
     '结束助手', '退出助手', '关闭助手', '取消', '结束导航', '取消导航', '停止导航',
     '帮助', '你能做什么', '确认出发', '确认开始导航', '暂停导航', '暂停', '继续导航',
     '恢复导航', '重复上一条', '再说一遍', '重复导航', '下一组', '下一页', '更多候选',
+    '确认到达', '我到了', '确认换目的地', '保留原路线', '取消换目的地', '重试搜索', '确认结束',
 ))
-CONFIRMATION = frozenset(('确认出发', '确认开始导航'))
+CONFIRMATION = frozenset(('确认出发', '确认开始导航', '确认换目的地', '确认结束'))
+ALIASES = {
+    '确认出发吧': '确认出发', '开始走吧': '确认出发', '开始导航吧': '确认开始导航',
+    '再说一下': '再说一遍', '再播一遍': '再说一遍', '重复候选': '再说一遍',
+}
 SPLIT = re.compile(r'[。；;！？!?，,]+|然后|接着|再(?=帮我|看看|告诉我|查一下|看|说|问|导航|测距)')
 DISTANCE = re.compile(
     r'声纳|超声波|测距|距离读数|障碍(?:物)?(?:离|有多远|多远|距离|预警)|'
@@ -31,11 +41,14 @@ class Action:
 
 
 def normalize(text):
-    return re.sub(r'[\s，。！？、,.!?]', '', text).strip()
+    return re.sub(r'[\s，。！？、,.!?]', '', unicodedata.normalize('NFKC', text)).strip()
 
 
 def classify(clause):
-    text = re.sub(r'^(?:先|再|请|帮我)+', '', normalize(clause))
+    text = re.sub(r'^(?:先|再(?!说|播)|请|帮我)+', '', normalize(clause))
+    text = ALIASES.get(text, text)
+    if AMAP_SEARCH.fullmatch(text) or AMAP.fullmatch(text):
+        return Action('amap', text)
     if text in NAVIGATION_COMMANDS or NUMBER.fullmatch(text) or DESTINATION.fullmatch(text):
         return Action('navigation', text)
     if ROUTE_STATUS.search(text):

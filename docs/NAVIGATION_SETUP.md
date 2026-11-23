@@ -108,3 +108,27 @@ domain.py 中早期 LocationProvider/MapProvider 是第一阶段契约；本轮�
 - https://www.w3.org/TR/geolocation/
 
 官方接口：[高德地点搜索](https://lbs.amap.com/api/uri-api/guide/search/marker) · [高德路线规划](https://lbs.amap.com/api/uri-api/guide/travel/route)。
+
+## 校园网使用助手
+
+手机访问 `https://电脑在校园网的地址:8443/assistant`。用与该地址匹配的证书。若手机已经安装并信任同一个项目 CA，可用该 CA 给新 IP 签证书，继续使用原来的手机 CA。浏览器把新的 IP、端口或协议组合视为另一个站点，首次访问需重新选该站点的麦克风、定位及助手设置。
+
+1. 电脑查看 Wi-Fi IPv4 地址。以 `10.4.162.20` 为例，在项目目录执行：
+
+   ```bash
+   ip -brief -4 addr
+   CAROOT="$PWD/certs/ca" mkcert -cert-file certs/campus.crt -key-file certs/campus.key 10.4.162.20
+   ```
+
+2. 在本地 `.env` 设置 `WEB_ACCESS_PASSWORD`。使用至少 16 位 ASCII 字符的随机口令，避免与其他服务共用。
+3. 启动服务：
+
+   ```bash
+   .venv/bin/python scripts/serve.py --host 10.4.162.20 --port 8443 \
+       --cert certs/campus.crt --key certs/campus.key --require-access
+   ```
+
+4. 手机连校园网并打开助手，登录用户名为 `3800`，密码为 `WEB_ACCESS_PASSWORD`。打开「权限与设置」，勾选需要的功能和「在这个浏览器记住以上设置」。进入新会话时点击「开启连续语音」，系统权限由浏览器管理。
+5. 访问超时时，先核对手机能否到达电脑的 IP 和端口。校园网可能隔离客户端。真实眼镜还需要电脑能连接 ESP32 的视频和遥测端口，换网络后按板子串口报告修改 `ESP32_HOST`。网络隔离时，可继续用受控手机热点演示。
+
+访问口令用于一台电脑上的单用户服务。使用同一个地址可保留浏览器的登录和授权偏好。自主手机 App 和独立高德 App 的结束回调仍需独立联调。

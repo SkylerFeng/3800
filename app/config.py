@@ -19,6 +19,7 @@ class Settings:
     amap_api_key: str = field(default='', repr=False)
     allow_external_maps: bool = False
     assistant_session_s: float = 900
+    web_access_password: str = field(default='', repr=False)
     map_timeout_s: float = 10
     location_ttl_s: float = 15
     location_max_accuracy_m: float = 30
@@ -40,6 +41,8 @@ class Settings:
     critical_intensity: float = 1.0
     asr_provider: str = 'unconfigured'
     vosk_model_path: str = ''
+    sensevoice_model_dir: str = ''
+    sensevoice_threads: int = 2
     asr_timeout_s: float = 20
     recording_max_s: float = 22
     recording_ttl_s: float = 90
@@ -65,7 +68,10 @@ class Settings:
     upload_max_bytes: int = 5 * 1024 * 1024
 
     def __post_init__(self):
-        for name, options in {'map_provider': ('mock', 'amap', 'unconfigured'), 'camera_source': ('mock', 'upload', 'esp32'), 'telemetry_source': ('mock', 'esp32'), 'vision_provider': ('mock', 'unconfigured', 'openai_compatible', 'ollama'), 'tts_provider': ('mock', 'unconfigured', 'espeak', 'piper', 'matcha'), 'haptic_output': ('mock', 'unconfigured', 'esp32'), 'asr_provider': ('mock', 'unconfigured', 'vosk')}.items():
+        if self.web_access_password and (not self.web_access_password.isascii()
+                                         or len(self.web_access_password) < 16):
+            raise ValueError('WEB_ACCESS_PASSWORD 必须至少有 16 个 ASCII 字符')
+        for name, options in {'map_provider': ('mock', 'amap', 'unconfigured'), 'camera_source': ('mock', 'upload', 'esp32'), 'telemetry_source': ('mock', 'esp32'), 'vision_provider': ('mock', 'unconfigured', 'openai_compatible', 'ollama'), 'tts_provider': ('mock', 'unconfigured', 'espeak', 'piper', 'matcha'), 'haptic_output': ('mock', 'unconfigured', 'esp32'), 'asr_provider': ('mock', 'unconfigured', 'vosk', 'sensevoice')}.items():
             if getattr(self, name) not in options:
                 raise ValueError(f'{name}: 不支持的配置')
         import math
@@ -100,6 +106,7 @@ class Settings:
             if not math.isfinite(value) or value <= 0:
                 raise ValueError(f'{name} 必须为有限正数')
         for name, value, low, high in (
+            ('sensevoice_threads', self.sensevoice_threads, 1, 8),
             ('camera_fps', self.camera_fps, .25, 20),
             ('esp32_camera_port', self.esp32_camera_port, 1, 65535),
             ('esp32_tcp_port', self.esp32_tcp_port, 1, 65535),

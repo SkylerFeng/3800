@@ -85,8 +85,8 @@ def nav_router(service):
     @router.post('/voice-destination')
     async def voice_destination(request: Request):
         await authorized(request)
-        if service.config.asr_provider != 'vosk':
-            raise HTTPException(409, '请先配置本地 Vosk 语音识别')
+        if not service.speech.asr_enabled:
+            raise HTTPException(409, '请先配置本地语音识别')
         if request.headers.get('content-type') != 'application/octet-stream':
             raise HTTPException(415, '录音格式应为 16 kHz PCM')
         if voice_lock.locked():

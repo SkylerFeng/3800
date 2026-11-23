@@ -51,14 +51,27 @@ class LocalSpeech:
     def tts_enabled(self):
         return self.config.tts_provider in ('espeak', 'piper', 'matcha')
 
+    @property
+    def asr_enabled(self):
+        return self.config.asr_provider in ('vosk', 'sensevoice')
+
     async def transcribe(self, recording):
         if self.config.asr_provider == 'mock':
             return '杯子在哪里？'
-        if self.config.asr_provider != 'vosk' or not self.config.vosk_model_path:
+        if self.config.asr_provider == 'sensevoice':
+            root = Path(self.config.sensevoice_model_dir)
+            model, tokens = root / 'model.int8.onnx', root / 'tokens.txt'
+            if not self.config.sensevoice_model_dir or not model.is_file() or not tokens.is_file():
+                raise SpeechError('请配置 SenseVoice 普通话模型目录')
+            command = [sys.executable, str(Path(__file__).with_name('sensevoice_worker.py')),
+                       str(model), str(tokens), str(self.config.sensevoice_threads)]
+        elif self.config.asr_provider == 'vosk' and self.config.vosk_model_path:
+            worker = Path(__file__).with_name('vosk_worker.py')
+            command = [sys.executable, str(worker), self.config.vosk_model_path]
+        else:
             raise SpeechError('请配置本地语音识别模型')
-        worker = Path(__file__).with_name('vosk_worker.py')
         output = await process(
-            [sys.executable, str(worker), self.config.vosk_model_path],
+            command,
             wav_bytes(recording.pcm, recording.sample_rate), self.config.asr_timeout_s)
         text = output.decode('utf-8').strip()
         if not text or len(text) > 500:

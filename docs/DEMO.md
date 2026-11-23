@@ -24,13 +24,15 @@
 
 手机连接同一热点，访问 `https://电脑热点IP:8443/assistant`。用 [导航 HTTPS 配置](NAVIGATION_SETUP.md) 启动服务。本机的热点 IP 为 `192.168.20.5` 时，直接打开 `https://192.168.20.5:8443/assistant`。
 
-1. 做眼镜问答时，选择允许本次会话的提问和单张画面发给已配置的视觉服务。做真实导航时，勾选允许使用手机位置和高德地图，可以填写城市。
+1. 在「权限与设置」选择画面和位置许可，并可勾选「在这个浏览器记住以上设置」。做真实导航时可以填写城市。授权偏好可随时清除，浏览器系统权限由手机管理。
 2. 点击「开启连续语音」，授予麦克风及所选的位置权限。保持页面在前台，等待助手提示正在听。
-3. 说「杯子在哪里」，或等手机定位就绪后说「带我去图书馆」。听完回复再继续说。导航依次说「第二个」「确认出发」。也可说「下一组」「暂停导航」「继续导航」「重复上一条」「取消」或「结束助手」。
+3. 说「杯子在哪里」，或等手机定位就绪后说「带我去图书馆」。目的地自动填入搜索框。听完回复再说「第二个」「确认出发」。接近目的地会播报提醒，核对入口后说「确认到达」，即可结束路线并继续对话。
 
 也可以说「先告诉我障碍有多远，再看看杯子在哪里」。助手会依次检查声纳和画面。说「摄像头在线吗」可以检查设备状态。
 
-文字输入走同一套对话流程，可以检查识别出错后应当如何表达。离线演示支持文字流程和模拟路线。如果要使用麦克风，应配置 `ASR_PROVIDER=vosk` 和 `VOSK_MODEL_PATH`。语音播报使用当前本地 TTS 配置。会话默认最多 15 分钟，由 `ASSISTANT_SESSION_S` 调整。
+手机装有高德地图时，可以说「用高德导航去图书馆」，听候选后说「选第二个」，再说「确认出发」。助手尝试打开高德步行导航，起点由高德使用手机位置。如果浏览器拦住自动跳转，请点「打开高德地图 App」。用手机的返回键或应用切换回助手，可继续对话。也可直接说「打开高德搜索图书馆」，让高德显示搜索结果。
+
+听错时可说「再说一遍」。已在选地点或导航时，新的地名需要说「确认换目的地」才会搜索。超时可说「重试搜索」。语音说「结束导航」后，再说「确认结束」。文字输入走同一套 Agent 调度，可用于离线模拟路线。会话默认 15 分钟，由 `ASSISTANT_SESSION_S` 调整。
 
 ## 三个演示场景
 
@@ -41,6 +43,18 @@
 语音识别后的目的地可用「用输入内容找目的地」带到导航页，搜索和候选确认由用户完成。
 
 ## 本地语音配置
+
+当前电脑的普通话识别使用 SenseVoice。新环境可以这样安装同一版本：
+
+```bash
+.venv/bin/python -m pip install -r requirements-matcha.txt
+mkdir -p models
+model=sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09
+curl -fL "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/${model}.tar.bz2" -o "models/${model}.tar.bz2"
+tar -xjf "models/${model}.tar.bz2" -C models
+```
+
+在 `.env` 设置 `ASR_PROVIDER=sensevoice`、`SENSEVOICE_MODEL_DIR=models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2025-09-09`。默认用 2 个 CPU 线程，模型固定以中文解码。语音识别与播报分别配置。要切换回 Vosk，可使用以下安装命令及 Vosk 配置。
 
 ```bash
 .venv/bin/python -m pip install -r requirements-voice.txt
@@ -76,7 +90,7 @@ done
 | 声纳读数范围 | `SONAR_MIN_M`、`SONAR_MAX_M` 控制主机采信的读数区间。实物量程按具体型号与现场测量确定 |
 | 预警规则 | `WARNING_M`、`CRITICAL_M`、`HYSTERESIS_M` |
 | 触觉 | `HAPTIC_OUTPUT`、`HAPTIC_INTERVAL_S`、`HAPTIC_ACK_S`、两个等级的 `*_PULSE_MS` 和 `*_INTENSITY` |
-| 语音 | `ASR_PROVIDER`、`VOSK_MODEL_PATH`、`ASR_TIMEOUT_S`、录音上限和保留时间、`TTS_PROVIDER`、`TTS_BINARY`、`TTS_VOICE`、`TTS_SPEED`、`TTS_TIMEOUT_S` |
+| 语音 | `ASR_PROVIDER`、`SENSEVOICE_MODEL_DIR`、`SENSEVOICE_THREADS`、`VOSK_MODEL_PATH`、`ASR_TIMEOUT_S`、`TTS_PROVIDER`、`TTS_TIMEOUT_S` |
 | 模型与导航 | `VISION_PROVIDER`、`MODEL_TIMEOUT_S`、`MAP_PROVIDER`、位置有效期、精度与偏离阈值 |
 
 默认阈值为提醒 1.2 米和紧急 0.5 米，迟滞为 0.1 米。这些值用于受控演示，佩戴和环境标定需按实测调整。启动参数支持现有的 `--host`、`--port`、`--cert` 和 `--key`，环境变量优先于 `.env`。详细键名和默认值见 [.env.example](../.env.example)。

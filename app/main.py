@@ -1,6 +1,9 @@
 import asyncio
+import base64
+import binascii
 from contextlib import asynccontextmanager
 import logging
+import secrets
 from pathlib import Path
 import time
 from typing import Literal
@@ -18,6 +21,7 @@ from .speech import SpeechError
 from .vision import build_vision
 from .nav_api import nav_router
 from .assistant import assistant_router
+from .mobile import mobile_router
 
 WEB = Path(__file__).parent / 'web'
 
@@ -60,14 +64,36 @@ def create_app(settings: Settings | None = None, vision=None):
 
     app = FastAPI(title='AIAA 3800 离线软件原型', lifespan=lifespan)
     app.state.service = service
+    mobile_cookie = secrets.token_urlsafe(32)
 
     @app.middleware('http')
     async def privacy_and_local_use(request: Request, call_next):
+        if config.web_access_password:
+            scheme, _, encoded = request.headers.get('authorization', '').partition(' ')
+            try:
+                credentials = base64.b64decode(encoded, validate=True) if scheme.lower() == 'basic' else b''
+            except (ValueError, binascii.Error):
+                credentials = b''
+            expected = ('3800:' + config.web_access_password).encode('ascii')
+            basic_ok = secrets.compare_digest(credentials, expected)
+            cookie = request.cookies.get('__Host-3800-mobile', '')
+            mobile_ok = (request.url.scheme == 'https' and cookie.isascii()
+                         and secrets.compare_digest(cookie, mobile_cookie))
+            if not basic_ok and not mobile_ok:
+                return Response('请输入 3800 的局域网访问口令。', status_code=401, headers={
+                    'WWW-Authenticate': 'Basic realm="AIAA 3800", charset="UTF-8"',
+                    'Cache-Control': 'no-store',
+                })
         # No CORS; browser mutations require same origin, including loopback use.
         origin = request.headers.get('origin')
         if request.method not in ('GET', 'HEAD', 'OPTIONS') and origin and origin != str(request.base_url).rstrip('/'):
             return Response('跨来源写入请求已拒绝', status_code=403)
         response = await call_next(request)
+        if (config.web_access_password and basic_ok and request.url.scheme == 'https'
+                and request.url.path == '/api/mobile/status' and response.status_code == 200
+                and request.headers.get('X-3800-WebView') == '1'):
+            response.set_cookie('__Host-3800-mobile', mobile_cookie, secure=True,
+                                httponly=True, samesite='strict')
         response.headers['Cache-Control'] = 'no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self' blob:; connect-src 'self'; frame-ancestors 'none'"
@@ -79,6 +105,7 @@ def create_app(settings: Settings | None = None, vision=None):
 
     app.include_router(nav_router(service))
     app.include_router(assistant_router(service))
+    app.include_router(mobile_router(service))
 
     @app.get('/assistant')
     async def assistant_page():

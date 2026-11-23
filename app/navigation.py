@@ -142,28 +142,37 @@ class Navigation:
                 raise
         return self.state()
 
-    async def search(self,query,region,page=1):
+    async def search(self,query,region,page=1, *, preserve_on_failure=False):
         if self.lock.locked():
             raise NavError('已有地图操作，请稍后再试')
         async with self.lock:
-            # New destination search always invalidates previous directions.
-            self.clear_route();self.status='searching';self.candidates=[];self.search_id=None
+            if not preserve_on_failure:
+                self.clear_route();self.status='searching';self.candidates=[];self.search_id=None
+            generation = self.generation
             try:
                 if self.mode == 'amap':
-                    self.candidates = (await self.bounded(self.provider.candidates(query, region, page=page)))[:20]
+                    candidates = (await self.bounded(self.provider.candidates(query, region, page=page)))[:20]
                 else:
-                    self.candidates = (await self.bounded(self.provider.candidates(query, region)))[:8]
+                    candidates = (await self.bounded(self.provider.candidates(query, region)))[:8]
+                if generation != self.generation:
+                    raise NavError('地点搜索已取消')
+                if preserve_on_failure and not candidates:
+                    return self.state()
+                if preserve_on_failure:
+                    self.clear_route()
+                self.candidates = candidates
                 self.search_id=uuid.uuid4().hex;self.used_search=False
                 self.status='select_destination';self.error=None
             except NavError as exc:
-                self.status='error';self.error=str(exc);raise
+                if not preserve_on_failure and generation == self.generation:
+                    self.status='error';self.error=str(exc)
+                raise
         return self.state()
 
     async def plan(self,search_id,candidate_id):
         if self.lock.locked():
             raise NavError('已有地图操作，请稍后再试')
         async with self.lock:
-            self.clear_route()
             generation=self.generation
             try:
                 if search_id!=self.search_id or self.used_search:
@@ -195,10 +204,13 @@ class Navigation:
                         f'高德路线终点距所选地点约 {end_gap:.0f} 米。'
                         '请搜索并选择实际要到达的校门、楼门或其他入口。'
                     )
+                self.clear_route()
                 self.route=route;self.route_mono=time.monotonic();self.status='preview'
                 self.error=None;self.used_search=True
             except NavError as exc:
-                self.status='error';self.error=str(exc);raise
+                if generation == self.generation and not self.route:
+                    self.status='error';self.error=str(exc)
+                raise
         return self.state()
 
     def start(self):

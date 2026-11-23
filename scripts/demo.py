@@ -18,6 +18,7 @@ def main():
         'CAMERA_SOURCE': 'mock',
         'TELEMETRY_SOURCE': 'mock',
         'ESP32_HOST': '',
+        'WEB_ACCESS_PASSWORD': '',
         'VISION_PROVIDER': 'mock',
         'VISION_API_BASE_URL': '',
         'VISION_API_KEY': '',

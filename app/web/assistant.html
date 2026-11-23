@@ -5,22 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>3800 眼镜助手</title>
 <link rel="stylesheet" href="/static/style.css">
-<script src="/static/assistant.js" defer></script>
+<script src="/static/assistant.js?v=6" defer></script>
 </head>
 <body>
 <header><div><h1>3800 眼镜助手</h1><p>用普通话问眼镜、选择地点和确认路线。</p></div><a href="/">控制台</a></header>
 <main class="stack">
 <section class="card">
 <h2>开始会话</h2>
-<label><input type="checkbox" id="allow-frame"> 允许本次会话将提问和一张画面发给已配置的视觉服务</label>
-<label><input type="checkbox" id="allow-location"> 允许本次会话使用手机位置和高德地图</label>
+<details id="settings">
+<summary>权限与设置</summary>
+<label><input type="checkbox" id="allow-frame"> 允许问答时将提问和一张画面发给已配置的视觉服务</label>
+<label><input type="checkbox" id="allow-location"> 允许使用手机位置和高德地图</label>
 <label for="region">所在城市（可选）</label>
 <input id="region" maxlength="40" placeholder="例如：广州">
+<label><input type="checkbox" id="remember-settings"> 在这个浏览器记住以上设置</label>
+<button id="forget-settings" class="secondary" type="button">撤销授权并清除设置</button>
+<p id="settings-status" role="status"></p>
+</details>
 <div class="actions">
 <button id="start-voice">开启连续语音</button>
 <button id="stop" class="secondary" disabled>结束会话</button>
 </div>
-<p id="status" role="status">开启后，可以说「先告诉我障碍有多远，再看看杯子在哪里」，也可以说「步行去图书馆」。</p>
+<p id="status" role="status">可以说「杯子在哪里」或「用高德导航去图书馆」。</p>
+<p id="phone-mode" hidden>随身模式。视觉问答时由手机从眼镜取图。</p>
 <p id="location-status"></p>
 </section>
 <section class="card">
@@ -28,6 +35,18 @@
 <p id="heard"></p>
 <p id="reply" aria-live="polite"></p>
 <p id="route-status" aria-live="polite"></p>
+<div id="handoff-panel" hidden>
+<a id="handoff-app">打开高德地图 App</a>
+<a id="handoff-web">在高德网页继续</a>
+</div>
+<div id="destination-panel" hidden>
+<label for="destination">识别出的目的地</label>
+<input id="destination" maxlength="80">
+<div class="actions">
+<button id="search-destination" class="secondary" type="button">在助手中搜索</button>
+<a id="open-amap" target="_blank" rel="noopener noreferrer" hidden>在高德地图搜索</a>
+</div>
+</div>
 <audio id="audio" controls hidden></audio>
 <form id="text-form">
 <label for="text">也可输入指令</label>
