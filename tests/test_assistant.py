@@ -117,6 +117,23 @@ async def test_unknown_and_device_queries_do_not_call_vision(monkeypatch):
             assert expected in result.json()['reply']
 
 
+@pytest.mark.parametrize('text', [
+    '可以看到图中的杯子么', '看得到图中那个吗', '能看见水壶吗', '图里有水壶吗', '图中有几个苹果',
+])
+async def test_visual_presence_questions_reach_vision(text, monkeypatch):
+    app = create_app(Settings())
+
+    async def answer(frame, question):
+        assert question == text
+        return '已检查当前画面。'
+
+    monkeypatch.setattr(app.state.service.vision, 'answer', answer)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url='http://test') as client:
+        headers = await begin(client)
+        response = await client.post('/api/assistant/turn', headers=headers, json={'text': text})
+        assert response.json()['reply'] == '已检查当前画面。'
+
+
 async def test_visual_follow_up_uses_target_and_new_frame(monkeypatch):
     from dataclasses import replace
 

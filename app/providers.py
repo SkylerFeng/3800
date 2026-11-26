@@ -2,7 +2,7 @@ import asyncio
 import io
 import time
 import uuid
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 from .domain import Frame, HapticRequest, HapticResult, utc_now
 
 
@@ -36,6 +36,8 @@ class LatestCamera:
                 raise ValueError('图像不能超过1200万像素')
             image.load()
             clean = image.convert('RGB')
+            if source in ('esp32', 'phone_snapshot'):
+                clean = ImageOps.mirror(clean)
             out = io.BytesIO()
             clean.save(out, format='JPEG', quality=85)  # strip EXIF, including location
             frame = Frame(uuid.uuid4().hex, out.getvalue(), utc_now(), time.monotonic(), clean.width, clean.height, source, simulated, static)

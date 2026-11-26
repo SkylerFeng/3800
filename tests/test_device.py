@@ -46,7 +46,9 @@ async def wait_until(check):
 
 async def test_local_tcp_camera_recording_and_haptic_through_app():
     jpeg = io.BytesIO()
-    Image.new('RGB', (64, 48), 'blue').save(jpeg, 'JPEG')
+    scene = Image.new('RGB', (64, 48), 'blue')
+    scene.paste('red', (0, 0, 32, 48))
+    scene.save(jpeg, 'JPEG')
     image = jpeg.getvalue()
     wav = wav_bytes(b'\0\0' * 160, 16000)
     closed = asyncio.Event()
@@ -107,6 +109,10 @@ async def test_local_tcp_camera_recording_and_haptic_through_app():
                 async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app),
                                              base_url='http://test') as client:
                     await wait_until(lambda: service.camera.frame and service.last_haptic)
+                    preview = await client.get('/api/frame')
+                    with Image.open(io.BytesIO(preview.content)) as frame:
+                        assert frame.getpixel((8, 12))[2] > 220
+                        assert frame.getpixel((56, 12))[0] > 220
                     state = (await client.get('/api/state')).json()
                     assert state['imu']['quaternion_wxyz'] == [1, 0, 0, 0]
                     assert state['distance']['distance_m'] == .24

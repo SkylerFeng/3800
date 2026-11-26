@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Typeface;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaDataSource;
@@ -37,11 +39,16 @@ public class MainActivity extends Activity {
     private static final int ASK_MIC = 1;
     private static final int SAMPLE_RATE = 16000;
     private static final int MAX_PCM = 320000;
+    private static final int INK = 0xffeff8f6;
+    private static final int MUTED = 0xffacc0bd;
+    private static final int PANEL = 0xff19272a;
+    private static final int LINE = 0xff405657;
+    private static final int ACCENT = 0xff81dccc;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private EditText camera, computer, password, question;
     private CheckBox cloud;
     private Button checkCamera, checkComputer, ask, voice, assistant;
-    private TextView status, answer;
+    private TextView status, quickStatus, answer;
     private ImageView preview;
     private MediaPlayer player;
     private volatile boolean recording;
@@ -50,6 +57,7 @@ public class MainActivity extends Activity {
     @Override public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ScrollView screen = new ScrollView(this);
+        screen.setFillViewport(true);
         LinearLayout form = new LinearLayout(this);
         form.setOrientation(LinearLayout.VERTICAL);
         form.setPadding(dp(20), dp(20), dp(20), dp(20));
@@ -58,22 +66,24 @@ public class MainActivity extends Activity {
 
         TextView title = new TextView(this);
         title.setText("3800 随身助手");
-        title.setTextSize(26);
+        title.setTextSize(30);
+        title.setTextColor(INK);
         title.setTypeface(null, Typeface.BOLD);
         title.setAccessibilityHeading(true);
         form.addView(title);
+        LinearLayout connection = card(form, "连接设置");
 
-        camera = field(form, "眼镜 IP", "192.168.20.155", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        computer = field(form, "电脑 HTTPS 地址", "https://10.4.162.20:8443",
+        camera = field(connection, "眼镜 IP", "192.168.20.155", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        computer = field(connection, "电脑 HTTPS 地址", "https://10.4.162.20:8443",
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
-        password = field(form, "电脑访问口令", "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        password = field(connection, "电脑访问口令", "", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         password.setTransformationMethod(PasswordTransformationMethod.getInstance());
         password.setSaveEnabled(false);
         camera.setText(getPreferences(MODE_PRIVATE).getString("camera", ""));
         computer.setText(getPreferences(MODE_PRIVATE).getString("computer", ""));
-        checkCamera = button(form, "测试眼镜取图");
-        checkComputer = button(form, "测试电脑连接");
-        assistant = button(form, "打开完整语音助手");
+        checkCamera = button(connection, "测试眼镜取图", false);
+        checkComputer = button(connection, "测试电脑连接", false);
+        assistant = button(connection, "打开完整语音助手", true);
         assistant.setOnClickListener(view -> {
             String host = computer.getText().toString().trim();
             try {
@@ -90,32 +100,49 @@ public class MainActivity extends Activity {
                     .putExtra("password", password.getText().toString()));
         });
 
-        question = field(form, "问题", "杯子在哪里？", InputType.TYPE_CLASS_TEXT);
-        question.setFilters(new InputFilter[] {new InputFilter.LengthFilter(500)});
-        cloud = new CheckBox(this);
-        cloud.setText("允许电脑把本次图像和问题发送给配置的云视觉模型");
-        form.addView(cloud);
-        ask = button(form, "发送文字问题");
-        voice = button(form, "开始录音");
         status = new TextView(this);
+        status.setTextColor(MUTED);
+        status.setPadding(0, dp(12), 0, 0);
         status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         status.setText("先测试眼镜取图和电脑连接。");
-        form.addView(status);
-        answer = new TextView(this);
-        answer.setTextSize(18);
-        answer.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        form.addView(answer);
+        connection.addView(status);
         preview = new ImageView(this);
         preview.setAdjustViewBounds(true);
         preview.setMaxHeight(dp(240));
         preview.setContentDescription("眼镜本次取得的画面");
-        form.addView(preview);
+        preview.setScaleX(-1f); // Preview renders the raw JPEG. The server mirrors its own copy.
+        preview.setVisibility(View.GONE);
+        LinearLayout.LayoutParams previewParams = new LinearLayout.LayoutParams(-1, -2);
+        previewParams.topMargin = dp(12);
+        connection.addView(preview, previewParams);
 
-        checkCamera.setOnClickListener(view -> start("正在从眼镜取图…", request -> {
+        LinearLayout quick = card(form, "快速问答");
+        question = field(quick, "问题", "杯子在哪里？", InputType.TYPE_CLASS_TEXT);
+        question.setFilters(new InputFilter[] {new InputFilter.LengthFilter(500)});
+        cloud = new CheckBox(this);
+        cloud.setText("允许电脑把本次图像和问题发送给配置的云视觉模型");
+        cloud.setTextColor(MUTED);
+        cloud.setMinHeight(dp(48));
+        quick.addView(cloud);
+        ask = button(quick, "发送文字问题", false);
+        voice = button(quick, "开始录音", false);
+        quickStatus = new TextView(this);
+        quickStatus.setTextColor(MUTED);
+        quickStatus.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        quick.addView(quickStatus);
+        answer = new TextView(this);
+        answer.setTextSize(18);
+        answer.setTextColor(INK);
+        answer.setPadding(0, dp(12), 0, 0);
+        answer.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
+        answer.setVisibility(View.GONE);
+        quick.addView(answer);
+
+        checkCamera.setOnClickListener(view -> start(status, "正在从眼镜取图…", request -> {
             byte[] jpeg = Relay.snapshot(request.camera);
             return new Result("眼镜取图成功。画面保留在手机。", null, jpeg);
         }));
-        checkComputer.setOnClickListener(view -> start("正在连接电脑…", request -> {
+        checkComputer.setOnClickListener(view -> start(status, "正在连接电脑…", request -> {
             JSONObject response = Relay.host(request.computer, request.password, null, null, false, false);
             return new Result(response.optBoolean("asr") ? "电脑已连接，可以语音提问。"
                     : "电脑已连接，可用文字提问。", null, null);
@@ -123,17 +150,17 @@ public class MainActivity extends Activity {
         ask.setOnClickListener(view -> {
             String text = question.getText().toString().trim();
             if (text.isEmpty()) {
-                status.setText("请输入问题。");
+                quickStatus.setText("请输入问题。");
                 return;
             }
-            start("正在取图并发送问题…",
+            start(quickStatus, "正在取图并发送问题…",
                     request -> ask(request, text.getBytes(StandardCharsets.UTF_8), false));
         });
         voice.setOnClickListener(view -> {
             if (recording) {
                 recording = false;
                 voice.setEnabled(false);
-                status.setText("正在取图并发送语音…");
+                quickStatus.setText("正在取图并发送语音…");
             } else if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[] {Manifest.permission.RECORD_AUDIO}, ASK_MIC);
             } else {
@@ -146,13 +173,13 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(code, permissions, results);
         if (code == ASK_MIC) {
             if (results.length == 1 && results[0] == PackageManager.PERMISSION_GRANTED) startRecording();
-            else status.setText("请允许麦克风权限，或使用文字提问。");
+            else quickStatus.setText("请允许麦克风权限，或使用文字提问。");
         }
     }
 
     private void startRecording() {
         recording = true;
-        start("正在录音，再点一次发送。", request -> {
+        start(quickStatus, "正在录音，再点一次发送。", request -> {
             byte[] pcm = capture(request.generation);
             return ask(request, pcm, true);
         });
@@ -181,7 +208,7 @@ public class MainActivity extends Activity {
             runOnUiThread(() -> {
                 if (generation == requestGeneration) {
                     voice.setEnabled(false);
-                    status.setText("正在取图并发送语音…");
+                    quickStatus.setText("正在取图并发送语音…");
                 }
             });
             return pcm.toByteArray();
@@ -201,7 +228,7 @@ public class MainActivity extends Activity {
         if (generation != requestGeneration) throw new IOException("请求已结束。");
     }
 
-    private void start(String message, Operation operation) {
+    private void start(TextView feedback, String message, Operation operation) {
         stopPlayback();
         int current = ++generation;
         Request request = new Request(camera.getText().toString().trim(), computer.getText().toString().trim(),
@@ -209,13 +236,15 @@ public class MainActivity extends Activity {
         getPreferences(MODE_PRIVATE).edit().putString("camera", request.camera)
                 .putString("computer", request.computer).apply();
         setBusy(true);
-        status.setText(message);
+        feedback.setText(message);
         answer.setText("");
+        answer.setVisibility(View.GONE);
         preview.setImageDrawable(null);
+        preview.setVisibility(View.GONE);
         worker.execute(() -> {
             try {
                 Result result = operation.run(request);
-                runOnUiThread(() -> show(current, result));
+                runOnUiThread(() -> show(current, result, feedback));
             } catch (Exception error) {
                 String detail = error instanceof SocketTimeoutException
                         ? "连接超时，请分别测试眼镜和电脑。"
@@ -225,16 +254,16 @@ public class MainActivity extends Activity {
                     if (generation != current) return;
                     recording = false;
                     setBusy(false);
-                    status.setText(detail);
+                    feedback.setText(detail);
                 });
             }
         });
     }
 
-    private void show(int current, Result result) {
+    private void show(int current, Result result, TextView feedback) {
         if (generation != current) return;
         setBusy(false);
-        status.setText(result.message);
+        feedback.setText(result.message);
         if (result.jpeg != null) {
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;
@@ -245,10 +274,12 @@ public class MainActivity extends Activity {
                 options.inSampleSize = Math.max(1, Math.max(bounds.outWidth, bounds.outHeight) / 640);
                 Bitmap bitmap = BitmapFactory.decodeByteArray(result.jpeg, 0, result.jpeg.length, options);
                 preview.setImageBitmap(bitmap);
+                if (bitmap != null) preview.setVisibility(View.VISIBLE);
             }
         }
         if (result.reply == null) return;
         answer.setText("识别问题：" + result.reply.optString("heard") + "\n" + result.reply.optString("reply"));
+        answer.setVisibility(View.VISIBLE);
         String audio = result.reply.optString("audio_wav", "");
         if (!audio.isEmpty() && !audio.equals("null")) {
             play(Base64.getDecoder().decode(audio));
@@ -272,13 +303,13 @@ public class MainActivity extends Activity {
             player.setOnCompletionListener(media -> stopPlayback());
             player.setOnErrorListener((media, what, extra) -> {
                 stopPlayback();
-                status.setText("答案已显示，语音播放失败。");
+                quickStatus.setText("答案已显示，语音播放失败。");
                 return true;
             });
             player.prepareAsync();
         } catch (Exception error) {
             stopPlayback();
-            status.setText("答案已显示，语音播放失败。");
+            quickStatus.setText("答案已显示，语音播放失败。");
         }
     }
 
@@ -313,25 +344,67 @@ public class MainActivity extends Activity {
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
+    private GradientDrawable surface(int color, int border, int radius) {
+        GradientDrawable surface = new GradientDrawable();
+        surface.setColor(color);
+        surface.setCornerRadius(dp(radius));
+        if (border != Color.TRANSPARENT) surface.setStroke(dp(1), border);
+        return surface;
+    }
+
+    private LinearLayout card(LinearLayout parent, String heading) {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(16), dp(16), dp(16));
+        card.setBackground(surface(PANEL, LINE, 20));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.topMargin = dp(16);
+        parent.addView(card, params);
+        TextView label = new TextView(this);
+        label.setText(heading);
+        label.setTextSize(19);
+        label.setTextColor(INK);
+        label.setTypeface(null, Typeface.BOLD);
+        label.setAccessibilityHeading(true);
+        card.addView(label);
+        return card;
+    }
+
     private EditText field(LinearLayout parent, String name, String hint, int type) {
         EditText input = new EditText(this);
         input.setId(View.generateViewId());
         input.setSingleLine(true);
         input.setInputType(type);
         input.setHint(hint);
+        input.setTextColor(INK);
+        input.setHintTextColor(MUTED);
+        input.setBackground(surface(0xff111e20, LINE, 10));
+        input.setOnFocusChangeListener((view, focused) ->
+                view.setBackground(surface(0xff111e20, focused ? ACCENT : LINE, 10)));
+        input.setPadding(dp(12), dp(10), dp(12), dp(10));
+        input.setMinHeight(dp(48));
         TextView label = new TextView(this);
         label.setText(name);
+        label.setTextColor(MUTED);
+        label.setPadding(0, dp(12), 0, dp(6));
         label.setLabelFor(input.getId());
         parent.addView(label);
         parent.addView(input);
         return input;
     }
 
-    private Button button(LinearLayout parent, String label) {
+    private Button button(LinearLayout parent, String label, boolean primary) {
         Button button = new Button(this);
         button.setText(label);
+        button.setAllCaps(false);
+        button.setTextColor(primary ? 0xff102520 : INK);
+        button.setBackground(new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x337bada6),
+                surface(primary ? ACCENT : PANEL, primary ? ACCENT : LINE, 12), null));
         button.setMinHeight(dp(48));
-        parent.addView(button);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.topMargin = dp(8);
+        parent.addView(button, params);
         return button;
     }
 

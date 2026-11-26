@@ -1,0 +1,114 @@
+body.assistant {
+  min-height: 100vh;
+  color: #eff8f6;
+  background: radial-gradient(ellipse at top, #1b3333, #101a1c 36rem);
+}
+.assistant header,
+.assistant main {
+  max-width: 890px;
+}
+.assistant header {
+  gap: 16px;
+  padding-bottom: 20px;
+  border: 0;
+}
+.assistant h1 {
+  font-size: clamp(24px, 5vw, 34px);
+  margin: 0;
+}
+.assistant header p {
+  margin: 6px 0 0;
+  color: #acc0bd;
+}
+.assistant a {
+  color: #a2e8dc;
+  text-underline-offset: .2em;
+}
+.assistant header a {
+  flex-shrink: 0;
+}
+.assistant main {
+  gap: 16px;
+  padding-top: 0;
+}
+.assistant .card {
+  background: #19272a;
+  border: 1px solid #405657;
+  border-radius: 20px;
+}
+.assistant h2 {
+  margin-bottom: 14px;
+}
+.assistant details,
+.assistant #destination-panel {
+  padding: 12px 14px;
+  background: #111e20;
+  border: 1px solid #405657;
+  border-radius: 12px;
+}
+.assistant summary {
+  cursor: pointer;
+  padding: 7px 0;
+  font-weight: 650;
+}
+.assistant input:not([type="checkbox"]) {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  font: inherit;
+  color: inherit;
+  background: #111e20;
+  border: 1px solid #587170;
+  border-radius: 10px;
+}
+.assistant input[type="checkbox"] {
+  accent-color: #81dccc;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+}
+.assistant button {
+  min-height: 46px;
+  font-size: 14px;
+  border-radius: 11px;
+  color: #102520;
+  border-color: #81dccc;
+  background: #81dccc;
+}
+.assistant button.secondary {
+  color: #eff8f6;
+  background: #19272a;
+  border-color: #587170;
+}
+.assistant #heard,
+.assistant #phone-mode,
+.assistant #location-status {
+  color: #acc0bd;
+}
+.assistant #reply:not(:empty),
+.assistant #route-status:not(:empty) {
+  margin: 12px 0;
+  padding: 12px 14px;
+  background: #111e20;
+  border-left: 3px solid #81dccc;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.assistant #reply:empty,
+.assistant #route-status:empty,
+.assistant #heard:empty,
+.assistant #location-status:empty,
+.assistant #settings-status:empty {
+  display: none;
+}
+.assistant #handoff-panel a:not([hidden]),
+.assistant #destination-panel a:not([hidden]) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-right: 12px;
+}
+.assistant audio {
+  width: 100%;
+  margin-top: 12px;
+}

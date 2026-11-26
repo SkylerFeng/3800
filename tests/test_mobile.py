@@ -12,7 +12,9 @@ PASSWORD = 'mobile-test-password'
 
 def request_body(payload):
     output = io.BytesIO()
-    Image.new('RGB', (32, 24), 'blue').save(output, 'JPEG')
+    scene = Image.new('RGB', (32, 24), 'blue')
+    scene.paste('red', (0, 0, 16, 24))
+    scene.save(output, 'JPEG')
     jpeg = output.getvalue()
     return len(jpeg).to_bytes(4, 'big') + jpeg + payload
 
@@ -65,6 +67,9 @@ async def test_phone_voice_obeys_cloud_permission_and_returns_answer_audio(monke
 
     async def answer(frame, question):
         assert frame.source == 'phone_snapshot' and frame.width == 32 and frame.static
+        with Image.open(io.BytesIO(frame.content)) as image:
+            assert image.getpixel((4, 12))[2] > 220
+            assert image.getpixel((28, 12))[0] > 220
         seen.append(question)
         return '画面中央有一个杯子。'
 
@@ -105,6 +110,9 @@ async def test_phone_agent_requests_frame_only_for_vision_and_keeps_navigation(m
 
     async def answer(frame, text):
         assert frame.source == 'phone_snapshot'
+        with Image.open(io.BytesIO(frame.content)) as image:
+            assert image.getpixel((4, 12))[2] > 220
+            assert image.getpixel((28, 12))[0] > 220
         assert text in ('杯子在哪里', '杯子在哪')
         frames.append(frame.frame_id)
         return '杯子在中间。'
